@@ -85,7 +85,7 @@ public class DiscordEventListener extends ListenerAdapter {
                     statement.setString(4, "Authenticated");
                     statement.setDate(5, new Date(0L));
                 } else {
-                    statement = con.prepareStatement("UPDATE MinecraftUserList SET DiscordUserID = ? WHERE WHERE MinecraftUUID = ?");
+                    statement = con.prepareStatement("UPDATE MinecraftUserList SET DiscordUserID = ? WHERE MinecraftUUID = ?");
                     statement.setString(1, DiscordUserID);
                     statement.setString(2, result.getUuid().toString());
                 }
