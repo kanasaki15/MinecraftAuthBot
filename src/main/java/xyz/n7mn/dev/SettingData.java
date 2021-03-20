@@ -1,6 +1,6 @@
 package xyz.n7mn.dev;
 
-class SettingData {
+public class SettingData {
 
     private String DiscordToken = "";
     private String DiscordReceivedTextChannel = "";
