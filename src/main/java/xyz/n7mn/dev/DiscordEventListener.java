@@ -3,6 +3,7 @@ package xyz.n7mn.dev;
 import com.google.gson.Gson;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.events.ReadyEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import okhttp3.OkHttpClient;
@@ -12,13 +13,8 @@ import org.jetbrains.annotations.NotNull;
 import xyz.n7mn.dev.lib.NanamiPerm;
 import xyz.n7mn.dev.lib.PermData;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.sql.*;
+import java.util.*;
 
 public class DiscordEventListener extends ListenerAdapter {
 
@@ -127,6 +123,66 @@ public class DiscordEventListener extends ListenerAdapter {
             }
 
         }).start();
+
+    }
+
+    @Override
+    public void onReady(@NotNull ReadyEvent event) {
+        List<PermData> roleList = new NanamiPerm(data).getList();
+
+        Timer timer = new Timer();
+        TimerTask task = new TimerTask() {
+            @Override
+            public void run() {
+                Connection con = null;
+                try {
+                    con = DriverManager.getConnection("jdbc:mysql://" + data.getMySQLServer() + ":" + data.getMySQlPort() + "/" + data.getMySQLDatabase() + data.getMySQLOption(), data.getMySQLUsername(), data.getMySQLPassword());
+                    con.setAutoCommit(true);
+                }catch (SQLException e){
+                    e.printStackTrace();
+                }
+
+                JDA jda = event.getJDA();
+                Guild guild = jda.getGuildById("810725404545515561");
+                List<Member> members = guild.getMembers();
+
+                for (Member member: members){
+                    UUID roleId = null;
+                    List<Role> memberRoleList = member.getRoles();
+                    for (PermData data : roleList){
+                        for (Role memberRole : memberRoleList){
+                            if (data.getDiscordRoleID().equals(memberRole.getId())){
+                                roleId = data.getUUID();
+                                break;
+                            }
+                        }
+                    }
+
+                    if (roleId != null && con != null){
+                        try {
+                            PreparedStatement statement = con.prepareStatement("UPDATE MinecraftUserList SET RoleUUID = ? WHERE DiscordUserID = ?");
+                            statement.setString(1, roleId.toString());
+                            statement.setString(2, member.getId());
+                            statement.execute();
+                            statement.close();
+                            con.close();
+                        } catch (Exception e){
+                            e.printStackTrace();
+                        }
+                    }
+                }
+
+                if (con != null){
+                    try {
+                        con.close();
+                    } catch (SQLException e){
+                        e.printStackTrace();
+                    }
+                }
+            }
+        };
+
+        timer.scheduleAtFixedRate(task, 0L, 60000L);
 
     }
 
