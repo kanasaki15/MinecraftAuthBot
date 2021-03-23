@@ -134,51 +134,53 @@ public class DiscordEventListener extends ListenerAdapter {
         TimerTask task = new TimerTask() {
             @Override
             public void run() {
-                Connection con = null;
+
                 try {
-                    con = DriverManager.getConnection("jdbc:mysql://" + data.getMySQLServer() + ":" + data.getMySQlPort() + "/" + data.getMySQLDatabase() + data.getMySQLOption(), data.getMySQLUsername(), data.getMySQLPassword());
+                    Connection con = DriverManager.getConnection("jdbc:mysql://" + data.getMySQLServer() + ":" + data.getMySQlPort() + "/" + data.getMySQLDatabase() + data.getMySQLOption(), data.getMySQLUsername(), data.getMySQLPassword());
                     con.setAutoCommit(true);
-                }catch (SQLException e){
-                    e.printStackTrace();
-                }
 
-                JDA jda = event.getJDA();
-                Guild guild = jda.getGuildById("810725404545515561");
-                List<Member> members = guild.getMembers();
+                    JDA jda = event.getJDA();
+                    Guild guild = jda.getGuildById("810725404545515561");
+                    List<Member> members = guild.getMembers();
 
-                for (Member member: members){
-                    UUID roleId = null;
-                    List<Role> memberRoleList = member.getRoles();
-                    for (PermData data : roleList){
-                        for (Role memberRole : memberRoleList){
-                            if (data.getDiscordRoleID().equals(memberRole.getId())){
-                                roleId = data.getUUID();
+                    for (Member member: members){
+                        UUID roleId = null;
+                        List<Role> memberRoleList = member.getRoles();
+                        for (PermData data : roleList){
+                            for (Role memberRole : memberRoleList){
+                                if (data.getDiscordRoleID().equals(memberRole.getId())){
+                                    roleId = data.getUUID();
+
+                                    break;
+                                }
+                            }
+
+                            if (roleId != null){
                                 break;
+                            }
+                        }
+
+                        if (roleId != null){
+                            try {
+                                PreparedStatement statement = con.prepareStatement("UPDATE MinecraftUserList SET RoleUUID = ? WHERE DiscordUserID = ?");
+                                statement.setString(1, roleId.toString());
+                                statement.setString(2, member.getId());
+                                statement.execute();
+                                statement.close();
+                            } catch (Exception e){
+                                e.printStackTrace();
+                                con.close();
+                                return;
                             }
                         }
                     }
 
-                    if (roleId != null && con != null){
-                        try {
-                            PreparedStatement statement = con.prepareStatement("UPDATE MinecraftUserList SET RoleUUID = ? WHERE DiscordUserID = ?");
-                            statement.setString(1, roleId.toString());
-                            statement.setString(2, member.getId());
-                            statement.execute();
-                            statement.close();
-                            con.close();
-                        } catch (Exception e){
-                            e.printStackTrace();
-                        }
-                    }
+                    con.close();
+                }catch (SQLException e){
+                    e.printStackTrace();
                 }
 
-                if (con != null){
-                    try {
-                        con.close();
-                    } catch (SQLException e){
-                        e.printStackTrace();
-                    }
-                }
+
             }
         };
 
