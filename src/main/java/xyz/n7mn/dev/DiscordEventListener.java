@@ -105,16 +105,14 @@ public class DiscordEventListener extends ListenerAdapter {
                 statement.close();
                 con.close();
 
-                if (permID == null){
-                    Member member = event.getMessage().getMember();
-                    JDA jda = member.getJDA();
-                    Guild guiid = jda.getGuildById(member.getGuild().getId());
-                    List<Role> roleList = guiid.getRoles();
-                    for (Role role : roleList){
-                        if (role.getId().equals(data.getDiscordAddRoleID())){
-                            guiid.addRoleToMember(event.getAuthor().getId(), role).queue();
-                            return;
-                        }
+                Member member = event.getMessage().getMember();
+                JDA jda = member.getJDA();
+                Guild guiid = jda.getGuildById(member.getGuild().getId());
+                List<Role> roleList = guiid.getRoles();
+                for (Role role : roleList){
+                    if (role.getId().equals(data.getDiscordAddRoleID())){
+                        guiid.addRoleToMember(event.getAuthor().getId(), role).queue();
+                        return;
                     }
                 }
 
@@ -134,53 +132,52 @@ public class DiscordEventListener extends ListenerAdapter {
         TimerTask task = new TimerTask() {
             @Override
             public void run() {
+                new Thread(()->{
+                    try {
+                        Connection con = DriverManager.getConnection("jdbc:mysql://" + data.getMySQLServer() + ":" + data.getMySQlPort() + "/" + data.getMySQLDatabase() + data.getMySQLOption(), data.getMySQLUsername(), data.getMySQLPassword());
+                        con.setAutoCommit(true);
 
-                try {
-                    Connection con = DriverManager.getConnection("jdbc:mysql://" + data.getMySQLServer() + ":" + data.getMySQlPort() + "/" + data.getMySQLDatabase() + data.getMySQLOption(), data.getMySQLUsername(), data.getMySQLPassword());
-                    con.setAutoCommit(true);
+                        JDA jda = event.getJDA();
+                        Guild guild = jda.getGuildById("810725404545515561");
+                        List<Member> members = guild.getMembers();
 
-                    JDA jda = event.getJDA();
-                    Guild guild = jda.getGuildById("810725404545515561");
-                    List<Member> members = guild.getMembers();
+                        for (Member member: members){
+                            UUID roleId = null;
+                            List<Role> memberRoleList = member.getRoles();
+                            for (PermData data : roleList){
+                                for (Role memberRole : memberRoleList){
+                                    if (data.getDiscordRoleID().equals(memberRole.getId())){
+                                        roleId = data.getUUID();
 
-                    for (Member member: members){
-                        UUID roleId = null;
-                        List<Role> memberRoleList = member.getRoles();
-                        for (PermData data : roleList){
-                            for (Role memberRole : memberRoleList){
-                                if (data.getDiscordRoleID().equals(memberRole.getId())){
-                                    roleId = data.getUUID();
+                                        break;
+                                    }
+                                }
 
+                                if (roleId != null){
                                     break;
                                 }
                             }
 
                             if (roleId != null){
-                                break;
+                                try {
+                                    PreparedStatement statement = con.prepareStatement("UPDATE MinecraftUserList SET RoleUUID = ? WHERE DiscordUserID = ?");
+                                    statement.setString(1, roleId.toString());
+                                    statement.setString(2, member.getId());
+                                    statement.execute();
+                                    statement.close();
+                                } catch (Exception e){
+                                    e.printStackTrace();
+                                    con.close();
+                                    return;
+                                }
                             }
                         }
 
-                        if (roleId != null){
-                            try {
-                                PreparedStatement statement = con.prepareStatement("UPDATE MinecraftUserList SET RoleUUID = ? WHERE DiscordUserID = ?");
-                                statement.setString(1, roleId.toString());
-                                statement.setString(2, member.getId());
-                                statement.execute();
-                                statement.close();
-                            } catch (Exception e){
-                                e.printStackTrace();
-                                con.close();
-                                return;
-                            }
-                        }
+                        con.close();
+                    }catch (SQLException e){
+                        e.printStackTrace();
                     }
-
-                    con.close();
-                }catch (SQLException e){
-                    e.printStackTrace();
-                }
-
-
+                }).start();
             }
         };
 
