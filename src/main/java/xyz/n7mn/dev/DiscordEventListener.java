@@ -1,6 +1,7 @@
 package xyz.n7mn.dev;
 
 import com.google.gson.Gson;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.ReadyEvent;
@@ -13,8 +14,10 @@ import org.jetbrains.annotations.NotNull;
 import xyz.n7mn.dev.lib.NanamiPerm;
 import xyz.n7mn.dev.lib.PermData;
 
+import java.awt.*;
 import java.sql.*;
 import java.util.*;
+import java.util.List;
 
 public class DiscordEventListener extends ListenerAdapter {
 
@@ -196,6 +199,85 @@ public class DiscordEventListener extends ListenerAdapter {
         }
 
         new Thread(()->{
+
+            String msg = message.getContentRaw();
+
+            if (msg.toLowerCase().startsWith("#.check")){
+
+                EmbedBuilder builder = new EmbedBuilder();
+                builder.setColor(Color.GREEN);
+                builder.setTitle("問い合わせ結果");
+
+                if (!msg.toLowerCase().equals("#.check")){
+                    builder.setColor(Color.RED);
+
+                    builder.setTitle("えらー");
+                    builder.setDescription("`#.check`でお願いします。");
+
+                    message.reply(builder.build()).queue();
+                    return;
+                }
+
+                List<String> mineUUID = new ArrayList<>();
+                List<String> mineUser = new ArrayList<>();
+                String checkUser = "";
+
+                try {
+                    Connection con = DriverManager.getConnection("jdbc:mysql://" + data.getMySQLServer() + ":" + data.getMySQlPort() + "/" + data.getMySQLDatabase() + data.getMySQLOption(), data.getMySQLUsername(), data.getMySQLPassword());
+                    con.setAutoCommit(true);
+
+                    PreparedStatement statement = con.prepareStatement("SELECT * FROM MinecraftUserList WHERE DiscordUserID = ?");
+                    statement.setString(1, message.getAuthor().getId());
+                    ResultSet set = statement.executeQuery();
+
+                    while (set.next()){
+                        mineUUID.add(set.getString("MinecraftUUID"));
+                    }
+
+                    set.close();
+                    statement.close();
+                    con.close();
+
+                } catch (Exception e){
+                    e.printStackTrace();
+                }
+
+                if (mineUUID.size() == 0){
+                    builder.setDescription(author.getAsTag() + "さんは連携をしていないようです。");
+                    message.reply(builder.build()).queue();
+                    return;
+                }
+
+                checkUser = author.getAsTag();
+
+                OkHttpClient client = new OkHttpClient();
+                for (String str : mineUUID){
+                    String url = "https://api.mojang.com/user/profiles/" + str.replaceAll("-","") + "/names";
+                    Request request = new Request.Builder()
+                            .url(url)
+                            .build();
+                    try {
+                        Response response = client.newCall(request).execute();
+                        String json = response.body().string();
+                        UUID2MCIDResult[] result = new Gson().fromJson(json, UUID2MCIDResult[].class);
+                        mineUser.add(result[result.length - 1].getName());
+                    } catch (Exception e){
+                        e.printStackTrace();
+                    }
+                }
+
+                StringBuffer sb = new StringBuffer();
+
+                for (String name : mineUser){
+                    sb.append("`");
+                    sb.append(name);
+                    sb.append("`");
+                    sb.append("\n");
+                }
+
+                builder.setDescription(checkUser + "さんは以下のMinecraftIDと連携しています。\n\n" + sb.toString());
+                message.reply(builder.build()).queue();
+            }
 
         }).start();
 
